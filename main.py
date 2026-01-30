@@ -106,6 +106,20 @@ def parse_args():
     parser.add_argument("--rmsnorm-quantize-kernel-enabled", action="store_true")
     parser.add_argument("--quantized-kernel-lower-bound", type=float, default=1200.0)
     parser.add_argument("--mlp-kernel-fuse-residual-add", action="store_true")
+    
+    # NKI MoE Kernel
+    parser.add_argument("--nki-moe-enabled", action="store_true", 
+                       help="Enable NKI MoE expert computation kernels")
+    parser.add_argument("--nki-moe-topk-optimized", action="store_true",
+                       help="Use optimized top-k aggregation for NKI MoE")
+    
+    # Advanced Optimizations
+    parser.add_argument("--use-fully-optimized", action="store_true",
+                       help="Use qwen_final_optimized with all optimizations")
+    parser.add_argument("--nki-attention-enabled", action="store_true",
+                       help="Enable NKI Attention kernels")
+    parser.add_argument("--optimize-weight-layout", action="store_true",
+                       help="Enable weight layout optimization")
 
     return parser.parse_args()
 
@@ -541,7 +555,15 @@ def main():
     args.tol_map = "{None: (1e-5, 0.05), 1000: (1e-5, 0.03), 50: (1e-5, 0.03), 5: (1e-5, 0.03)}"
 
     # points to your local model definition from qwen.py or qwen_with_nki.py
-    if args.enable_nki:
+    if args.use_fully_optimized:
+        print("Loading qwen_final_optimized module (ALL optimizations enabled)")
+        print("  - NKI RMSNorm: Yes")
+        print("  - NKI MoE: Yes")
+        print("  - NKI Attention: Yes" if args.nki_attention_enabled else "  - NKI Attention: No")
+        print("  - Flash Decoding: Yes" if args.flash_decoding_enabled else "  - Flash Decoding: No")
+        print("  - Weight Layout Opt: Yes" if args.optimize_weight_layout else "  - Weight Layout Opt: No")
+        qwen = importlib.import_module("qwen_final_optimized")
+    elif args.enable_nki:
         print("Loading qwen_with_nki module (NKI-accelerated RMSNorm enabled)")
         qwen = importlib.import_module("qwen_with_nki")
     else:
