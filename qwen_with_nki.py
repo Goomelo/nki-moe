@@ -24,6 +24,14 @@ from neuronx_distributed_inference.modules.custom_calls import CustomRMSNorm
 # Import our custom NKI RMSNorm
 from nki_custom_rmsnorm import NKIRMSNorm
 
+# Import NKI MoE kernels
+try:
+    from nki_moe_integrated import NKIMoEWrapper, enable_nki_moe
+    NKI_MOE_AVAILABLE = True
+except ImportError:
+    NKI_MOE_AVAILABLE = False
+    print("Warning: NKI MoE kernels not available")
+
 # Try except for the compatibility with older compiler version
 try:
     from neuronxcc.nki._private_kernels.attention import attention_isa_kernel
@@ -376,6 +384,15 @@ class NeuronQwen3MoeDecoderLayer(nn.Module):
             self.mlp = initialize_moe_module(
                 config=config,
             )
+        
+        # Wrap with NKI MoE if available and enabled
+        self.nki_moe_enabled = (
+            NKI_MOE_AVAILABLE and 
+            getattr(config.neuron_config, 'nki_moe_enabled', False)
+        )
+        if self.nki_moe_enabled:
+            print(f"Layer {layer_idx}: Wrapping MLP with NKI MoE kernel")
+            self.mlp = NKIMoEWrapper(self.mlp)
 
         self.qkv_kernel_enabled = config.neuron_config.qkv_kernel_enabled
         self.sequence_parallel_enabled = config.neuron_config.sequence_parallel_enabled
